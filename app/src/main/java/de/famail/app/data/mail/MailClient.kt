@@ -202,7 +202,7 @@ class MailClient(private val cfg: ServerConfig) {
         }
         FolderSyncResult(
             uidValidity = uidValidity,
-            unreadCount = runCatching { folder.unreadCount }.getOrDefault(0),
+            unreadCount = runCatching { folder.unreadMessageCount }.getOrDefault(0),
             headers = headers,
             lowestSyncedUid = headers.minOfOrNull { it.uid } ?: 0
         )
