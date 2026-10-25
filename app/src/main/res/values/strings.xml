@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">FA Mail</string>
+    <string name="channel_new_mail">Neue E-Mails</string>
+</resources>
