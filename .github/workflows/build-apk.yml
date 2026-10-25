@@ -5,6 +5,9 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -35,3 +38,11 @@ jobs:
         with:
           name: FA-Mail-debug-apk
           path: app/build/outputs/apk/debug/*.apk
+
+      - name: APK als Download veröffentlichen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp app/build/outputs/apk/debug/*.apk FA-Mail-debug.apk
+          gh release delete test-apk --yes --cleanup-tag || true
+          gh release create test-apk FA-Mail-debug.apk --title "FA Mail – Test-APK" --notes "Automatisch gebaut aus ${GITHUB_SHA::7}" --prerelease
