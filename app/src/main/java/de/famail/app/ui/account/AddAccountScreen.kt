@@ -1,9 +1,8 @@
 package de.famail.app.ui.account
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -20,17 +19,15 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.ArrowBackIosNew
+import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Lock
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material.icons.outlined.Mail
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -43,85 +40,143 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import de.famail.app.data.mail.ProviderPreset
 import de.famail.app.data.mail.ProviderPresets
 import de.famail.app.data.mail.Security
 import de.famail.app.data.repo.NewAccountInput
 import de.famail.app.ui.MainViewModel
+import de.famail.app.ui.components.FootnoteText
+import de.famail.app.ui.components.FormFieldRow
+import de.famail.app.ui.components.GroupCard
+import de.famail.app.ui.components.PrimaryButton
+import de.famail.app.ui.components.RowDivider
+import de.famail.app.ui.components.SectionHeader
+import de.famail.app.ui.components.SegmentedControl
 import de.famail.app.ui.theme.MailTheme
+
+/** Farbe und Kürzel je Anbieter (eigene neutrale Darstellung, keine Markenlogos). */
+private fun badgeFor(key: String): Pair<Color, String> = when (key) {
+    "gmail" -> Color(0xFFEA4335) to "G"
+    "outlook" -> Color(0xFF0A64C8) to "O"
+    "gmx" -> Color(0xFF1C449B) to "GMX"
+    "webde" -> Color(0xFFFFC800) to "W"
+    "yahoo" -> Color(0xFF6001D2) to "Y"
+    "icloud" -> Color(0xFF3B9CFF) to "i"
+    "ionos" -> Color(0xFF003D8F) to "1&1"
+    "tonline" -> Color(0xFFE20074) to "T"
+    else -> Color(0xFF8E8E93) to "@"
+}
 
 @Composable
 fun AddAccountScreen(vm: MainViewModel, isFirstAccount: Boolean, onCancel: () -> Unit) {
     val c = MailTheme.colors
     val state by vm.addState.collectAsState()
-
     var providerKey by rememberSaveable { mutableStateOf<String?>(null) }
+
+    if (providerKey != null) BackHandler { providerKey = null; vm.clearAddError() }
 
     Box(Modifier.fillMaxSize().background(c.background), contentAlignment = Alignment.TopCenter) {
         Column(
             Modifier
-                .widthIn(max = 640.dp)
+                .widthIn(max = 600.dp)
                 .fillMaxSize()
                 .statusBarsPadding()
                 .imePadding()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp)
                 .navigationBarsPadding()
         ) {
-            Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                if (providerKey != null || !isFirstAccount) {
-                    TextButton(onClick = {
-                        if (providerKey != null) { providerKey = null; vm.clearAddError() } else onCancel()
-                    }) {
-                        Icon(Icons.Outlined.ArrowBack, null, tint = c.accent)
+            // Navigationszeile im iOS-Stil
+            Row(
+                Modifier.fillMaxWidth().height(52.dp).padding(horizontal = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                val showBack = providerKey != null || !isFirstAccount
+                if (showBack) {
+                    Row(
+                        Modifier
+                            .clip(RoundedCornerShape(10.dp))
+                            .clickable {
+                                if (providerKey != null) { providerKey = null; vm.clearAddError() } else onCancel()
+                            }
+                            .padding(horizontal = 8.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Outlined.ArrowBackIosNew, null, tint = c.accent, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(4.dp))
-                        Text(if (providerKey != null) "Anbieter" else "Abbrechen", color = c.accent)
+                        Text(
+                            if (providerKey != null) "Anbieter" else "Abbrechen",
+                            color = c.accent, style = MaterialTheme.typography.bodyLarge
+                        )
                     }
                 }
             }
-            Text(
-                if (isFirstAccount) "Willkommen bei FA Mail" else "Konto hinzufügen",
-                style = MaterialTheme.typography.headlineMedium,
-                color = c.textPrimary,
-                modifier = Modifier.padding(top = 8.dp)
-            )
-            Text(
-                "Private und geschäftliche E-Mail-Konten in einer App.",
-                style = MaterialTheme.typography.bodyLarge,
-                color = c.textSecondary,
-                modifier = Modifier.padding(top = 4.dp, bottom = 20.dp)
-            )
 
             val key = providerKey
             if (key == null) {
-                ProviderPresets.all.forEach { p ->
-                    ProviderCard(p) { providerKey = p.key; vm.clearAddError() }
-                    Spacer(Modifier.height(10.dp))
-                }
+                ProviderList(isFirstAccount) { providerKey = it; vm.clearAddError() }
             } else {
                 AccountForm(vm, ProviderPresets.byKey(key), state.busy, state.error)
             }
-            Spacer(Modifier.height(40.dp))
+            Spacer(Modifier.height(48.dp))
         }
     }
 }
 
 @Composable
-private fun ProviderCard(p: ProviderPreset, onClick: () -> Unit) {
+private fun ProviderList(isFirstAccount: Boolean, onPick: (String) -> Unit) {
     val c = MailTheme.colors
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(if (c.isDark) Color(0xFF1C1C1E) else Color.White)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 18.dp, vertical = 18.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(p.name, style = MaterialTheme.typography.titleMedium, color = c.textPrimary, modifier = Modifier.weight(1f))
-        Text("›", style = MaterialTheme.typography.titleLarge, color = c.textTertiary)
+    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(
+            Modifier
+                .padding(top = 12.dp)
+                .size(76.dp)
+                .clip(RoundedCornerShape(18.dp))
+                .background(c.accent),
+            contentAlignment = Alignment.Center
+        ) { Icon(Icons.Outlined.Mail, null, tint = Color.White, modifier = Modifier.size(44.dp)) }
+        Text(
+            if (isFirstAccount) "Willkommen bei FA Mail" else "Account hinzufügen",
+            style = MaterialTheme.typography.headlineMedium,
+            color = c.textPrimary,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(top = 18.dp, start = 24.dp, end = 24.dp)
+        )
+        Text(
+            "Wähle deinen E-Mail-Anbieter.",
+            style = MaterialTheme.typography.bodyLarge,
+            color = c.textSecondary,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(top = 6.dp, bottom = 22.dp)
+        )
+    }
+    GroupCard {
+        ProviderPresets.all.forEachIndexed { i, p ->
+            if (i > 0) RowDivider(start = 64.dp)
+            val (color, label) = badgeFor(p.key)
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clickable { onPick(p.key) }
+                    .padding(horizontal = 16.dp, vertical = 11.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    Modifier.size(34.dp).clip(RoundedCornerShape(8.dp)).background(color),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        label, color = Color.White, fontWeight = FontWeight.Bold,
+                        fontSize = if (label.length > 1) 11.sp else 17.sp
+                    )
+                }
+                Spacer(Modifier.width(14.dp))
+                Text(p.name, style = MaterialTheme.typography.bodyLarge, color = c.textPrimary, modifier = Modifier.weight(1f))
+                Icon(Icons.Outlined.ChevronRight, null, tint = c.textTertiary)
+            }
+        }
     }
 }
 
@@ -140,66 +195,96 @@ private fun AccountForm(vm: MainViewModel, preset: ProviderPreset, busy: Boolean
     var smtpSec by rememberSaveable(preset.key) { mutableStateOf(preset.smtpSecurity) }
     var advanced by rememberSaveable(preset.key) { mutableStateOf(preset.key == "custom") }
 
-    Text(preset.name, style = MaterialTheme.typography.titleLarge, color = c.textPrimary)
-    Spacer(Modifier.height(8.dp))
-    Text(
-        preset.hint,
-        style = MaterialTheme.typography.bodyMedium,
-        color = c.textSecondary,
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(if (c.isDark) Color(0xFF1C1C1E) else Color(0xFFEFEDF4))
-            .padding(12.dp)
-    )
-    Spacer(Modifier.height(16.dp))
-
-    Field("Name (wird Empfängern angezeigt)", name) { name = it }
-    Field("E-Mail-Adresse", email, KeyboardType.Email) { v ->
-        email = v
-        if (preset.key == "custom" && imapHost.isBlank()) {
-            val domain = v.substringAfter('@', "")
-            if (domain.contains('.')) { imapHost = "imap.$domain"; smtpHost = "smtp.$domain" }
+    val (color, label) = badgeFor(preset.key)
+    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(
+            Modifier.size(64.dp).clip(RoundedCornerShape(15.dp)).background(color),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(label, color = Color.White, fontWeight = FontWeight.Bold, fontSize = if (label.length > 1) 17.sp else 30.sp)
         }
+        Text(
+            preset.name,
+            style = MaterialTheme.typography.headlineSmall,
+            color = c.textPrimary,
+            modifier = Modifier.padding(top = 12.dp, bottom = 18.dp)
+        )
     }
-    Field("Passwort / App-Passwort", password, KeyboardType.Password, isPassword = true) { password = it }
 
-    TextButton(onClick = { advanced = !advanced }) {
-        Text(if (advanced) "Servereinstellungen ausblenden" else "Servereinstellungen anzeigen", color = c.accent)
+    GroupCard {
+        FormFieldRow("Name", name, { name = it }, placeholder = "Dein Name")
+        RowDivider()
+        FormFieldRow("E-Mail", email, { v ->
+            email = v
+            if (preset.key == "custom") {
+                val domain = v.substringAfter('@', "")
+                if (domain.contains('.') && (imapHost.isBlank() || imapHost.startsWith("imap."))) {
+                    imapHost = "imap.$domain"; smtpHost = "smtp.$domain"
+                }
+            }
+        }, placeholder = "name@beispiel.de", keyboardType = KeyboardType.Email)
+        RowDivider()
+        FormFieldRow(
+            "Passwort", password, { password = it.trim() },
+            placeholder = if (preset.key in setOf("gmail", "yahoo", "icloud")) "App-Passwort" else "Erforderlich",
+            keyboardType = KeyboardType.Password, isPassword = true
+        )
     }
-    if (advanced) {
-        Field("Benutzername (leer = E-Mail-Adresse)", username) { username = it }
-        Text("Eingehend (IMAP)", style = MaterialTheme.typography.titleSmall, color = c.textPrimary, modifier = Modifier.padding(top = 8.dp))
-        Field("IMAP-Server", imapHost, KeyboardType.Uri) { imapHost = it }
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.width(120.dp)) { Field("Port", imapPort, KeyboardType.Number) { imapPort = it.filter(Char::isDigit) } }
-            SecurityToggle(imapSec) { imapSec = it; imapPort = if (it == Security.SSL) "993" else "143" }
+    FootnoteText(preset.hint)
+
+    SectionHeader("Server")
+    GroupCard {
+        Row(
+            Modifier.fillMaxWidth().clickable { advanced = !advanced }.padding(horizontal = 16.dp, vertical = 13.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Servereinstellungen", style = MaterialTheme.typography.bodyLarge, color = c.textPrimary, modifier = Modifier.weight(1f))
+            Text(if (advanced) "Ausblenden" else "Anzeigen", style = MaterialTheme.typography.bodyLarge, color = c.accent)
         }
-        Text("Ausgehend (SMTP)", style = MaterialTheme.typography.titleSmall, color = c.textPrimary, modifier = Modifier.padding(top = 8.dp))
-        Field("SMTP-Server", smtpHost, KeyboardType.Uri) { smtpHost = it }
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.width(120.dp)) { Field("Port", smtpPort, KeyboardType.Number) { smtpPort = it.filter(Char::isDigit) } }
-            SecurityToggle(smtpSec) { smtpSec = it; smtpPort = if (it == Security.SSL) "465" else "587" }
+        if (advanced) {
+            RowDivider()
+            FormFieldRow("Benutzer", username, { username = it }, placeholder = "wie E-Mail")
+            RowDivider()
+            FormFieldRow("IMAP", imapHost, { imapHost = it }, placeholder = "imap.server.de", keyboardType = KeyboardType.Uri)
+            RowDivider()
+            FormFieldRow("Port", imapPort, { imapPort = it.filter(Char::isDigit) }, keyboardType = KeyboardType.Number)
+            SegmentedControl(
+                listOf(Security.SSL to "SSL/TLS", Security.STARTTLS to "STARTTLS"), imapSec,
+                { imapSec = it; imapPort = if (it == Security.SSL) "993" else "143" },
+                Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 12.dp)
+            )
+            RowDivider()
+            FormFieldRow("SMTP", smtpHost, { smtpHost = it }, placeholder = "smtp.server.de", keyboardType = KeyboardType.Uri)
+            RowDivider()
+            FormFieldRow("Port", smtpPort, { smtpPort = it.filter(Char::isDigit) }, keyboardType = KeyboardType.Number)
+            SegmentedControl(
+                listOf(Security.SSL to "SSL/TLS", Security.STARTTLS to "STARTTLS"), smtpSec,
+                { smtpSec = it; smtpPort = if (it == Security.SSL) "465" else "587" },
+                Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 12.dp)
+            )
         }
     }
 
     if (error != null) {
-        Text(
-            error,
-            color = c.danger,
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.padding(vertical = 10.dp)
-        )
+        Spacer(Modifier.height(14.dp))
+        GroupCard {
+            Text(
+                error,
+                color = c.danger,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(16.dp)
+            )
+        }
     }
 
     Row(
-        Modifier.fillMaxWidth().padding(top = 8.dp),
+        Modifier.fillMaxWidth().padding(horizontal = 32.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(Icons.Outlined.Lock, null, tint = c.textSecondary, modifier = Modifier.size(16.dp))
+        Icon(Icons.Outlined.Lock, null, tint = c.textSecondary, modifier = Modifier.size(14.dp))
         Spacer(Modifier.width(6.dp))
         Text(
-            "Das Passwort wird nur verschlüsselt auf diesem Gerät gespeichert (Android Keystore).",
+            "Das Passwort bleibt verschlüsselt auf diesem Gerät.",
             style = MaterialTheme.typography.bodySmall,
             color = c.textSecondary
         )
@@ -207,82 +292,25 @@ private fun AccountForm(vm: MainViewModel, preset: ProviderPreset, busy: Boolean
 
     val valid = email.contains('@') && password.isNotEmpty() && imapHost.isNotBlank() && smtpHost.isNotBlank() &&
         imapPort.toIntOrNull() != null && smtpPort.toIntOrNull() != null
-    Box(
-        Modifier
-            .padding(top = 18.dp)
-            .fillMaxWidth()
-            .height(54.dp)
-            .clip(RoundedCornerShape(14.dp))
-            .background(if (valid && !busy) c.accent else c.textTertiary)
-            .clickable(enabled = valid && !busy) {
-                vm.addAccount(
-                    NewAccountInput(
-                        email = email.trim(),
-                        displayName = name.trim(),
-                        providerKey = preset.key,
-                        username = username.trim().ifBlank { email.trim() },
-                        password = password,
-                        imapHost = imapHost.trim(),
-                        imapPort = imapPort.toInt(),
-                        imapSecurity = imapSec,
-                        smtpHost = smtpHost.trim(),
-                        smtpPort = smtpPort.toInt(),
-                        smtpSecurity = smtpSec
-                    )
-                )
-            },
-        contentAlignment = Alignment.Center
+    PrimaryButton(
+        text = if (busy) "Verbindung wird geprüft …" else "Weiter",
+        enabled = valid,
+        busy = busy
     ) {
-        if (busy) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                CircularProgressIndicator(Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
-                Spacer(Modifier.width(10.dp))
-                Text("Verbindung wird geprüft …", color = Color.White, fontWeight = FontWeight.SemiBold)
-            }
-        } else {
-            Text("Anmelden", color = Color.White, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyLarge)
-        }
-    }
-}
-
-@Composable
-private fun Field(
-    label: String,
-    value: String,
-    keyboardType: KeyboardType = KeyboardType.Text,
-    isPassword: Boolean = false,
-    onChange: (String) -> Unit
-) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = onChange,
-        label = { Text(label) },
-        singleLine = true,
-        visualTransformation = if (isPassword) PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
-        keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
-        shape = RoundedCornerShape(12.dp),
-        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
-    )
-}
-
-@Composable
-private fun SecurityToggle(value: String, onChange: (String) -> Unit) {
-    val c = MailTheme.colors
-    Row(
-        Modifier
-            .clip(RoundedCornerShape(10.dp))
-            .border(0.5.dp, c.separator, RoundedCornerShape(10.dp))
-    ) {
-        listOf(Security.SSL to "SSL/TLS", Security.STARTTLS to "STARTTLS").forEach { (k, label) ->
-            Text(
-                label,
-                color = if (value == k) Color.White else c.textPrimary,
-                style = MaterialTheme.typography.labelLarge,
-                modifier = Modifier
-                    .background(if (value == k) c.accent else Color.Transparent)
-                    .clickable { onChange(k) }
-                    .padding(horizontal = 14.dp, vertical = 10.dp)
+        vm.addAccount(
+            NewAccountInput(
+                email = email.trim(),
+                displayName = name.trim(),
+                providerKey = preset.key,
+                username = username.trim().ifBlank { email.trim() },
+                password = password,
+                imapHost = imapHost.trim(),
+                imapPort = imapPort.toInt(),
+                imapSecurity = imapSec,
+                smtpHost = smtpHost.trim(),
+                smtpPort = smtpPort.toInt(),
+                smtpSecurity = smtpSec
             )
-        }
+        )
     }
 }

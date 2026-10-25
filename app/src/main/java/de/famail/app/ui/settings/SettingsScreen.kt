@@ -26,8 +26,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -45,6 +43,7 @@ import de.famail.app.data.settings.ThemeMode
 import de.famail.app.ui.MainViewModel
 import de.famail.app.ui.Screen
 import de.famail.app.ui.components.GroupCard
+import de.famail.app.ui.components.IosSwitch
 import de.famail.app.ui.components.SectionHeader
 import de.famail.app.ui.theme.MailTheme
 import kotlin.math.roundToInt
@@ -223,11 +222,7 @@ private fun SwitchRow(label: String, checked: Boolean, onChange: (Boolean) -> Un
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(label, color = c.textPrimary, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-        Switch(
-            checked = checked,
-            onCheckedChange = onChange,
-            colors = SwitchDefaults.colors(checkedTrackColor = androidx.compose.ui.graphics.Color(0xFF34C759))
-        )
+        IosSwitch(checked, onChange)
     }
 }
 

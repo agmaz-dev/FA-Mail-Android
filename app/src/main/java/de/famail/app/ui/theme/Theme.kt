@@ -1,6 +1,13 @@
 package de.famail.app.ui.theme
 
+import android.app.Activity
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Shapes
+import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.unit.dp
+import androidx.core.view.WindowCompat
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
@@ -98,6 +105,15 @@ private val MailTypography = Typography(
     labelSmall = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Medium)
 )
 
+/** Apple-typische, stark abgerundete Formen (Menüs, Dialoge, Karten). */
+private val MailShapes = Shapes(
+    extraSmall = RoundedCornerShape(14.dp),
+    small = RoundedCornerShape(12.dp),
+    medium = RoundedCornerShape(16.dp),
+    large = RoundedCornerShape(20.dp),
+    extraLarge = RoundedCornerShape(26.dp)
+)
+
 @Composable
 fun FaMailTheme(themeMode: ThemeMode, fontScale: Float = 1f, content: @Composable () -> Unit) {
     val dark = when (themeMode) {
@@ -111,22 +127,39 @@ fun FaMailTheme(themeMode: ThemeMode, fontScale: Float = 1f, content: @Composabl
             primary = mc.accent, onPrimary = mc.onAccent, background = mc.background,
             surface = mc.pane, onSurface = mc.textPrimary, onBackground = mc.textPrimary,
             surfaceVariant = Color(0xFF1C1C1E), onSurfaceVariant = mc.textSecondary,
-            outlineVariant = mc.separator, error = mc.danger
+            outlineVariant = mc.separator, error = mc.danger,
+            surfaceContainer = Color(0xFF2C2C2E), surfaceContainerHigh = Color(0xFF2C2C2E),
+            surfaceContainerLow = Color(0xFF1C1C1E), surfaceContainerHighest = Color(0xFF3A3A3C),
+            inverseSurface = Color(0xFFF2F2F7), inverseOnSurface = Color(0xFF1C1C1E)
         )
     } else {
         lightColorScheme(
             primary = mc.accent, onPrimary = mc.onAccent, background = mc.background,
             surface = mc.pane, onSurface = mc.textPrimary, onBackground = mc.textPrimary,
             surfaceVariant = Color(0xFFEFEDF4), onSurfaceVariant = mc.textSecondary,
-            outlineVariant = mc.separator, error = mc.danger
+            outlineVariant = mc.separator, error = mc.danger,
+            surfaceContainer = Color.White, surfaceContainerHigh = Color.White,
+            surfaceContainerLow = Color.White, surfaceContainerHighest = Color.White,
+            inverseSurface = Color(0xF21C1C1E), inverseOnSurface = Color.White
         )
+    }
+    // Statusleisten-Symbole passend zum hellen bzw. dunklen Design
+    val view = LocalView.current
+    if (!view.isInEditMode) {
+        SideEffect {
+            val window = (view.context as? Activity)?.window ?: return@SideEffect
+            WindowCompat.getInsetsController(window, view).apply {
+                isAppearanceLightStatusBars = !dark
+                isAppearanceLightNavigationBars = !dark
+            }
+        }
     }
     val baseDensity = LocalDensity.current
     CompositionLocalProvider(
         LocalMailColors provides mc,
         LocalDensity provides Density(baseDensity.density, baseDensity.fontScale * fontScale)
     ) {
-        MaterialTheme(colorScheme = scheme, typography = MailTypography, content = content)
+        MaterialTheme(colorScheme = scheme, typography = MailTypography, shapes = MailShapes, content = content)
     }
 }
 

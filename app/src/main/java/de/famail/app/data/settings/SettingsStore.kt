@@ -14,7 +14,7 @@ import kotlinx.coroutines.flow.map
 enum class ThemeMode { LIGHT, DARK, SYSTEM }
 
 data class AppSettings(
-    val themeMode: ThemeMode = ThemeMode.SYSTEM,
+    val themeMode: ThemeMode = ThemeMode.LIGHT,
     val splitFraction: Float = DEFAULT_SPLIT,
     val rememberSplit: Boolean = true,
     val loadRemoteImages: Boolean = false,
@@ -49,8 +49,8 @@ class SettingsStore(private val context: Context) {
     val settings: Flow<AppSettings> = context.dataStore.data.map { p -> p.toSettings() }
 
     private fun Preferences.toSettings() = AppSettings(
-        themeMode = runCatching { ThemeMode.valueOf(this[Keys.theme] ?: "SYSTEM") }
-            .getOrDefault(ThemeMode.SYSTEM),
+        themeMode = runCatching { ThemeMode.valueOf(this[Keys.theme] ?: "LIGHT") }
+            .getOrDefault(ThemeMode.LIGHT),
         splitFraction = (this[Keys.split] ?: AppSettings.DEFAULT_SPLIT)
             .coerceIn(AppSettings.MIN_SPLIT, AppSettings.MAX_SPLIT),
         rememberSplit = this[Keys.rememberSplit] ?: true,

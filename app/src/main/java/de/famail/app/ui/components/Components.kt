@@ -10,6 +10,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.height
+import androidx.compose.runtime.getValue
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
@@ -177,7 +182,7 @@ fun GroupCard(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     Column(
         modifier
             .padding(horizontal = 16.dp)
-            .clip(RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(12.dp))
             .background(if (c.isDark) Color(0xFF1C1C1E) else Color.White)
     ) { content() }
 }
@@ -203,4 +208,156 @@ object DateLabels {
     }
 
     fun full(millis: Long): String = full.format(millis)
+}
+
+// ------------------------------------------------------------------ Apple-artige Bedienelemente
+
+/** iOS-Schalter: grüne Spur, weißer Knopf mit Schatten. */
+@Composable
+fun IosSwitch(checked: Boolean, onChange: (Boolean) -> Unit, modifier: Modifier = Modifier) {
+    val c = MailTheme.colors
+    val track by androidx.compose.animation.animateColorAsState(
+        if (checked) Color(0xFF34C759) else if (c.isDark) Color(0xFF39393D) else Color(0xFFE9E9EA),
+        label = "track"
+    )
+    val offset by androidx.compose.animation.core.animateDpAsState(if (checked) 20.dp else 0.dp, label = "knob")
+    Box(
+        modifier
+            .size(width = 51.dp, height = 31.dp)
+            .clip(RoundedCornerShape(50))
+            .background(track)
+            .clickable { onChange(!checked) }
+            .padding(2.dp)
+    ) {
+        Box(
+            Modifier
+                .padding(start = offset)
+                .size(27.dp)
+                .shadow(2.dp, CircleShape)
+                .clip(CircleShape)
+                .background(Color.White)
+        )
+    }
+}
+
+/** iOS-Segmentschalter: graue Spur, ausgewähltes Segment als weiße Pille. */
+@Composable
+fun <T> SegmentedControl(options: List<Pair<T, String>>, selected: T, onSelect: (T) -> Unit, modifier: Modifier = Modifier) {
+    val c = MailTheme.colors
+    Row(
+        modifier
+            .clip(RoundedCornerShape(9.dp))
+            .background(if (c.isDark) Color(0xFF2C2C2E) else Color(0xFFE6E4EB))
+            .padding(2.dp)
+    ) {
+        options.forEach { (value, label) ->
+            val isSel = value == selected
+            Box(
+                Modifier
+                    .weight(1f)
+                    .then(if (isSel) Modifier.shadow(2.dp, RoundedCornerShape(7.dp)) else Modifier)
+                    .clip(RoundedCornerShape(7.dp))
+                    .background(if (isSel) (if (c.isDark) Color(0xFF636366) else Color.White) else Color.Transparent)
+                    .clickable { onSelect(value) }
+                    .padding(vertical = 7.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    label,
+                    style = androidx.compose.material3.MaterialTheme.typography.labelLarge,
+                    fontWeight = if (isSel) FontWeight.SemiBold else FontWeight.Normal,
+                    color = c.textPrimary
+                )
+            }
+        }
+    }
+}
+
+/** Zeile in einer gruppierten Karte: Beschriftung links, Eingabefeld rechts (wie iOS-Formulare). */
+@Composable
+fun FormFieldRow(
+    label: String,
+    value: String,
+    onChange: (String) -> Unit,
+    placeholder: String = "",
+    keyboardType: androidx.compose.ui.text.input.KeyboardType = androidx.compose.ui.text.input.KeyboardType.Text,
+    isPassword: Boolean = false,
+    labelWidth: Dp = 110.dp
+) {
+    val c = MailTheme.colors
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 13.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            label,
+            style = androidx.compose.material3.MaterialTheme.typography.bodyLarge,
+            color = c.textPrimary,
+            modifier = Modifier.width(labelWidth)
+        )
+        Box(Modifier.weight(1f)) {
+            if (value.isEmpty()) {
+                Text(placeholder, style = androidx.compose.material3.MaterialTheme.typography.bodyLarge, color = c.textTertiary, maxLines = 1)
+            }
+            androidx.compose.foundation.text.BasicTextField(
+                value = value,
+                onValueChange = onChange,
+                singleLine = true,
+                textStyle = androidx.compose.material3.MaterialTheme.typography.bodyLarge.copy(color = c.textPrimary),
+                cursorBrush = androidx.compose.ui.graphics.SolidColor(c.accent),
+                visualTransformation = if (isPassword) androidx.compose.ui.text.input.PasswordVisualTransformation()
+                else androidx.compose.ui.text.input.VisualTransformation.None,
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                    keyboardType = keyboardType,
+                    autoCorrectEnabled = false
+                ),
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
+}
+
+@Composable
+fun RowDivider(start: Dp = 16.dp) {
+    androidx.compose.material3.HorizontalDivider(
+        color = MailTheme.colors.separator,
+        thickness = 0.5.dp,
+        modifier = Modifier.padding(start = start)
+    )
+}
+
+@Composable
+fun FootnoteText(text: String, color: Color = MailTheme.colors.textSecondary) {
+    Text(
+        text,
+        style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+        color = color,
+        modifier = Modifier.padding(start = 32.dp, end = 32.dp, top = 6.dp, bottom = 4.dp)
+    )
+}
+
+/** Großer blauer Apple-Knopf. */
+@Composable
+fun PrimaryButton(text: String, enabled: Boolean, busy: Boolean = false, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    val c = MailTheme.colors
+    Box(
+        modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .height(52.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(if (enabled || busy) c.accent else c.accent.copy(alpha = 0.35f))
+            .clickable(enabled = enabled && !busy, onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        if (busy) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                androidx.compose.material3.CircularProgressIndicator(Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
+                Spacer(Modifier.width(10.dp))
+                Text(text, color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 17.sp)
+            }
+        } else {
+            Text(text, color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 17.sp)
+        }
+    }
 }
