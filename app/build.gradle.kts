@@ -40,6 +40,9 @@ android {
     buildFeatures {
         compose = true
     }
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+    }
     packaging {
         resources {
             excludes += setOf(
@@ -88,4 +91,8 @@ dependencies {
     // E-Mail: JavaMail für Android (IMAP, SMTP, MIME) – kostenlos, EPL/GPL+CE
     implementation("com.sun.mail:android-mail:1.6.7")
     implementation("com.sun.mail:android-activation:1.6.7")
+
+    // Tests: echter IMAP/SMTP-Testserver (GreenMail) prüft Anmeldung, Senden und Abruf
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("com.icegreen:greenmail:1.6.15")
 }

@@ -62,7 +62,11 @@ data class FolderSyncResult(
  * Direkter IMAP-/SMTP-Zugriff über JavaMail. Alle Methoden blockieren und
  * dürfen nur auf einem IO-Thread aufgerufen werden.
  */
-class MailClient(private val cfg: ServerConfig) {
+class MailClient(
+    private val cfg: ServerConfig,
+    /** Nur für Tests (z. B. selbstsigniertes Zertifikat des Testservers) */
+    private val extraProperties: Map<String, String> = emptyMap()
+) {
 
     private val imapProtocol = if (cfg.imapSecurity == Security.SSL) "imaps" else "imap"
     private val smtpProtocol = if (cfg.smtpSecurity == Security.SSL) "smtps" else "smtp"
@@ -85,6 +89,7 @@ class MailClient(private val cfg: ServerConfig) {
         }
         p.setProperty("mail.mime.address.strict", "false")
         p.setProperty("mail.mime.decodetext.strict", "false")
+        extraProperties.forEach { (k, v) -> p.setProperty(k, v) }
         return Session.getInstance(p)
     }
 
@@ -104,6 +109,7 @@ class MailClient(private val cfg: ServerConfig) {
             p.setProperty("mail.smtp.starttls.required", "true")
         }
         p.setProperty("mail.mime.charset", "UTF-8")
+        extraProperties.forEach { (k, v) -> p.setProperty(k, v) }
         return Session.getInstance(p)
     }
 
