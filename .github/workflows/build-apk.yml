@@ -27,6 +27,12 @@ jobs:
           set -o pipefail
           ./gradlew --no-daemon testDebugUnitTest assembleDebug 2>&1 | tee build.log
 
+      - name: Testergebnis melden
+        if: always()
+        run: |
+          r=$(grep -ho '<testsuite [^>]*' app/build/test-results/testDebugUnitTest/*.xml 2>/dev/null | sed -E 's/.*name="([^"]*)".*tests="([0-9]+)".*failures="([0-9]+)".*errors="([0-9]+)".*/\1: \2 Tests, \3 Fehlschlaege, \4 Fehler/' | tr '\n' ' ')
+          echo "::notice title=Tests::${r:-keine Testergebnisse}"
+
       - name: Fehler melden
         if: failure()
         run: |
