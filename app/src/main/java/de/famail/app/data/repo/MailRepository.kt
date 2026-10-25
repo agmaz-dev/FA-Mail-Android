@@ -485,7 +485,8 @@ fun Throwable.friendlyMessage(): String {
     val cls = this::class.java.simpleName
     return when {
         cls.contains("AuthenticationFailed") || msg.contains("authentication") || msg.contains("auth") && msg.contains("fail") ->
-            "Anmeldung abgelehnt – E-Mail, Benutzername oder (App-)Passwort prüfen."
+            "Anmeldung abgelehnt – E-Mail, Benutzername oder (App-)Passwort prüfen." +
+                (message?.takeIf { it.isNotBlank() }?.let { "\nServer: ${it.take(200)}" } ?: "")
         cls.contains("UnknownHost") || msg.contains("unknownhost") || msg.contains("unable to resolve") ->
             "Server nicht gefunden – Internetverbindung und Servername prüfen."
         cls.contains("SocketTimeout") || msg.contains("timed out") || msg.contains("timeout") ->
