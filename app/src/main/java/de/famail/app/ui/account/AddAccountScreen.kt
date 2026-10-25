@@ -225,7 +225,9 @@ private fun AccountForm(vm: MainViewModel, preset: ProviderPreset, busy: Boolean
         }, placeholder = "name@beispiel.de", keyboardType = KeyboardType.Email)
         RowDivider()
         FormFieldRow(
-            "Passwort", password, { password = it.trim() },
+            "Passwort", password,
+            // App-Passwörter (Google, Yahoo, Apple) werden mit Leerzeichen angezeigt – diese entfernen
+            { password = if (preset.key in setOf("gmail", "yahoo", "icloud")) it.filterNot(Char::isWhitespace) else it.trim() },
             placeholder = if (preset.key in setOf("gmail", "yahoo", "icloud")) "App-Passwort" else "Erforderlich",
             keyboardType = KeyboardType.Password, isPassword = true
         )
