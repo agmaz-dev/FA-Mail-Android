@@ -67,7 +67,7 @@ sealed interface UiEvent {
     data class OpenExternal(val file: File, val mimeType: String) : UiEvent
 }
 
-data class AddAccountState(val busy: Boolean = false, val error: String? = null)
+data class AddAccountState(val busy: Boolean = false, val error: String? = null, val loginRejected: Boolean = false)
 
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
 class MainViewModel(app: Application) : AndroidViewModel(app) {
@@ -495,7 +495,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 selectMailbox(Mailbox.AllInboxes)
                 toast("Konto hinzugefügt")
             } catch (e: Exception) {
-                _addState.value = AddAccountState(error = e.friendlyMessage())
+                val rejected = e is javax.mail.AuthenticationFailedException ||
+                    (e.cause is javax.mail.AuthenticationFailedException)
+                val msg = if (e is de.famail.app.data.repo.SmtpSetupException)
+                    "Empfang klappt, aber der Postausgang (SMTP) nicht:\n" + (e.cause ?: e).friendlyMessage()
+                else e.friendlyMessage()
+                _addState.value = AddAccountState(error = msg, loginRejected = rejected)
             }
         }
     }

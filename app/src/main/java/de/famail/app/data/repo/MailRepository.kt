@@ -13,7 +13,9 @@ import de.famail.app.data.db.MessageEntity
 import de.famail.app.data.mail.AttachmentInfo
 import de.famail.app.data.mail.MailClient
 import de.famail.app.data.mail.MessageParser
+import de.famail.app.data.mail.Security
 import de.famail.app.data.mail.ServerConfig
+import javax.mail.AuthenticationFailedException
 import de.famail.app.data.security.CredentialCipher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
@@ -100,8 +102,65 @@ class MailRepository(private val context: Context, private val db: AppDatabase) 
         MailClient(input.toConfig()).testConnection()
     }
 
-    suspend fun addAccount(input: NewAccountInput): Long = withContext(Dispatchers.IO) {
-        MailClient(input.toConfig()).testConnection()
+    /**
+     * Probiert automatisch alle üblichen Varianten durch (SSL/STARTTLS, Standard-Ports,
+     * Benutzername mit und ohne Domain) und liefert die erste, die funktioniert.
+     */
+    private fun findWorkingConfig(input: NewAccountInput): NewAccountInput {
+        val email = input.email.trim()
+        val usernames = listOf(input.username.trim(), email, email.substringBefore('@'))
+            .filter { it.isNotBlank() }.distinct()
+        val imapVariants = listOf(
+            Triple(input.imapPort, input.imapSecurity, 0),
+            Triple(993, Security.SSL, 1),
+            Triple(143, Security.STARTTLS, 2)
+        ).distinctBy { it.first to it.second }
+        val smtpVariants = listOf(
+            Pair(input.smtpPort, input.smtpSecurity),
+            Pair(465, Security.SSL),
+            Pair(587, Security.STARTTLS)
+        ).distinct()
+
+        var authError: Exception? = null
+        var lastError: Exception? = null
+        var found: NewAccountInput? = null
+
+        loop@ for (user in usernames) {
+            for ((port, sec, _) in imapVariants) {
+                val candidate = input.copy(username = user, imapPort = port, imapSecurity = sec)
+                try {
+                    MailClient(candidate.toConfig()).testImap()
+                    found = candidate
+                    break@loop
+                } catch (e: AuthenticationFailedException) {
+                    authError = e
+                    break // Server erreicht, aber Anmeldung abgelehnt: anderer Port hilft nicht
+                } catch (e: Exception) {
+                    lastError = e
+                }
+            }
+        }
+        val imapOk = found ?: throw (authError ?: lastError ?: IllegalStateException("Keine Verbindung möglich"))
+
+        authError = null
+        lastError = null
+        for ((port, sec) in smtpVariants) {
+            val candidate = imapOk.copy(smtpPort = port, smtpSecurity = sec)
+            try {
+                MailClient(candidate.toConfig()).testSmtp()
+                return candidate
+            } catch (e: AuthenticationFailedException) {
+                authError = e
+                break
+            } catch (e: Exception) {
+                lastError = e
+            }
+        }
+        throw SmtpSetupException(authError ?: lastError ?: IllegalStateException("Postausgang nicht erreichbar"))
+    }
+
+    suspend fun addAccount(rawInput: NewAccountInput): Long = withContext(Dispatchers.IO) {
+        val input = findWorkingConfig(rawInput)
         val count = db.accounts().getAll().size
         val id = db.accounts().insert(
             AccountEntity(
@@ -479,6 +538,9 @@ class MailRepository(private val context: Context, private val db: AppDatabase) 
 }
 
 class SyncException(message: String) : Exception(message)
+
+/** Empfang klappt, aber der Postausgang (SMTP) nicht. */
+class SmtpSetupException(cause: Exception) : Exception(cause.message, cause)
 
 fun Throwable.friendlyMessage(): String {
     val msg = (message ?: "").lowercase()

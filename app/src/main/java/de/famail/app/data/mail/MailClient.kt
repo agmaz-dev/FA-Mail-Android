@@ -136,7 +136,15 @@ class MailClient(
 
     /** Prüft IMAP- und SMTP-Anmeldung. Wirft eine Exception mit Fehlertext, wenn etwas nicht stimmt. */
     fun testConnection() {
+        testImap()
+        testSmtp()
+    }
+
+    fun testImap() {
         withStore { it.defaultFolder.name }
+    }
+
+    fun testSmtp() {
         val transport = smtpSession().getTransport(smtpProtocol)
         transport.connect(cfg.smtpHost, cfg.smtpPort, cfg.username, cfg.password)
         transport.close()

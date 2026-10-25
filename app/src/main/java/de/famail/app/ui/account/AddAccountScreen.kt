@@ -118,7 +118,7 @@ fun AddAccountScreen(vm: MainViewModel, isFirstAccount: Boolean, onCancel: () ->
             if (key == null) {
                 ProviderList(isFirstAccount) { providerKey = it; vm.clearAddError() }
             } else {
-                AccountForm(vm, ProviderPresets.byKey(key), state.busy, state.error)
+                AccountForm(vm, ProviderPresets.byKey(key), state.busy, state.error, state.loginRejected)
             }
             Spacer(Modifier.height(48.dp))
         }
@@ -181,7 +181,7 @@ private fun ProviderList(isFirstAccount: Boolean, onPick: (String) -> Unit) {
 }
 
 @Composable
-private fun AccountForm(vm: MainViewModel, preset: ProviderPreset, busy: Boolean, error: String?) {
+private fun AccountForm(vm: MainViewModel, preset: ProviderPreset, busy: Boolean, error: String?, loginRejected: Boolean) {
     val c = MailTheme.colors
     var name by rememberSaveable { mutableStateOf("") }
     var email by rememberSaveable { mutableStateOf("") }
@@ -277,6 +277,7 @@ private fun AccountForm(vm: MainViewModel, preset: ProviderPreset, busy: Boolean
                 modifier = Modifier.padding(16.dp)
             )
         }
+        if (loginRejected) UnlockHelp(preset.key)
     }
 
     Row(
@@ -314,5 +315,122 @@ private fun AccountForm(vm: MainViewModel, preset: ProviderPreset, busy: Boolean
                 smtpSecurity = smtpSec
             )
         )
+    }
+}
+
+/** Was der Anbieter verlangt, damit fremde Mail-Apps sich anmelden dürfen – mit Direkt-Link. */
+private data class UnlockGuide(val title: String, val steps: List<String>, val buttonText: String, val url: String)
+
+private fun unlockGuideFor(key: String): UnlockGuide = when (key) {
+    "gmx" -> UnlockGuide(
+        "GMX blockiert fremde Mail-Apps, bis du es einmal erlaubst:",
+        listOf(
+            "Unten auf „GMX öffnen“ tippen und dort anmelden",
+            "Links unten auf das Zahnrad „Einstellungen“",
+            "Unter „E-Mail“ auf „POP3/IMAP Abruf“",
+            "Haken bei „POP3 und IMAP Zugriff erlauben“ setzen",
+            "„Speichern“ – dann hier erneut auf „Weiter“"
+        ),
+        "GMX öffnen", "https://www.gmx.net/"
+    )
+    "webde" -> UnlockGuide(
+        "WEB.DE blockiert fremde Mail-Apps, bis du es einmal erlaubst:",
+        listOf(
+            "Unten auf „WEB.DE öffnen“ tippen und dort anmelden",
+            "Links unten auf das Zahnrad „Einstellungen“",
+            "Unter „E-Mail“ auf „POP3/IMAP Abruf“",
+            "Haken bei „POP3 und IMAP Zugriff erlauben“ setzen",
+            "„Speichern“ – dann hier erneut auf „Weiter“"
+        ),
+        "WEB.DE öffnen", "https://web.de/"
+    )
+    "gmail" -> UnlockGuide(
+        "Google lässt fremde Apps nur mit einem App-Passwort zu:",
+        listOf(
+            "Unten auf „App-Passwort erstellen“ tippen",
+            "Name „FA Mail“ eingeben → „Erstellen“",
+            "Die 16 Buchstaben kopieren",
+            "Hier ins Passwortfeld einfügen → „Weiter“",
+            "Fehlt die Seite: zuerst „Bestätigung in zwei Schritten“ einschalten"
+        ),
+        "App-Passwort erstellen", "https://myaccount.google.com/apppasswords"
+    )
+    "yahoo" -> UnlockGuide(
+        "Yahoo lässt fremde Apps nur mit einem App-Passwort zu:",
+        listOf(
+            "Unten auf „App-Passwort erstellen“ tippen",
+            "Name „FA Mail“ eingeben → „Passwort generieren“",
+            "Die 16 Buchstaben kopieren",
+            "Hier ins Passwortfeld einfügen → „Weiter“"
+        ),
+        "App-Passwort erstellen", "https://login.yahoo.com/account/security/app-passwords"
+    )
+    "icloud" -> UnlockGuide(
+        "Apple lässt fremde Apps nur mit einem app-spezifischen Passwort zu:",
+        listOf(
+            "Unten auf „Apple-Account öffnen“ tippen",
+            "„Anmelden und Sicherheit“ → „App-spezifische Passwörter“",
+            "Passwort erstellen, kopieren und hier einfügen"
+        ),
+        "Apple-Account öffnen", "https://account.apple.com/"
+    )
+    "outlook" -> UnlockGuide(
+        "Microsoft erlaubt bei Outlook/Hotmail keine Passwort-Anmeldung mehr.",
+        listOf("Die Anmeldung „Mit Microsoft anmelden“ wird in einer der nächsten Versionen eingebaut."),
+        "", ""
+    )
+    else -> UnlockGuide(
+        "Der Server hat Benutzername oder Passwort abgelehnt:",
+        listOf(
+            "Passwort prüfen (Groß-/Kleinschreibung)",
+            "Bei manchen Anbietern muss IMAP im Webmail erst freigeschaltet werden",
+            "Manche Anbieter verlangen ein eigenes App-Passwort"
+        ),
+        "", ""
+    )
+}
+
+@Composable
+private fun UnlockHelp(providerKey: String) {
+    val c = MailTheme.colors
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val guide = unlockGuideFor(providerKey)
+    Spacer(Modifier.height(14.dp))
+    SectionHeader("So klappt die Anmeldung")
+    GroupCard {
+        Column(Modifier.padding(16.dp)) {
+            Text(guide.title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold, color = c.textPrimary)
+            Spacer(Modifier.height(10.dp))
+            guide.steps.forEachIndexed { i, step ->
+                Row(Modifier.padding(vertical = 4.dp), verticalAlignment = Alignment.Top) {
+                    Box(
+                        Modifier.size(24.dp).clip(RoundedCornerShape(12.dp)).background(c.accent),
+                        contentAlignment = Alignment.Center
+                    ) { Text("${i + 1}", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold) }
+                    Spacer(Modifier.width(10.dp))
+                    Text(step, style = MaterialTheme.typography.bodyMedium, color = c.textPrimary, modifier = Modifier.padding(top = 2.dp))
+                }
+            }
+        }
+        if (guide.url.isNotBlank()) {
+            RowDivider()
+            Text(
+                guide.buttonText + "  ›",
+                color = c.accent,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        runCatching {
+                            context.startActivity(
+                                android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(guide.url))
+                                    .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                            )
+                        }
+                    }
+                    .padding(16.dp)
+            )
+        }
     }
 }
